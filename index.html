@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>CDC-RDC分布方案</title>
+    <link rel="stylesheet" href="https://a.amap.com/jsapi_demos/static/demo-center/css/demo-center.css" />
+    <script type="text/javascript">
+        window._AMapSecurityConfig = {
+            securityJsCode:'b44b3a2c9af80c2452e959ad2e916b87',
+        }
+    </script>
+    <script type="text/javascript" src="https://webapi.amap.com/maps?v=2.0&key=e4e6d6127a1e404b42f6dae630299b03"></script>
+    <script src="https://webapi.amap.com/ui/1.1/main.js"></script>
+    <style>
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+        .button-container {
+            width: 240px;  /* 增加宽度以容纳两列 */
+            padding: 20px;
+            background: white;
+            border-left: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .button-row {
+            display: flex;
+            gap: 10px;
+        }
+        .button-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .column-title {
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .map-button {
+            width: 100%;
+            padding: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .map-button:hover {
+            background: #e8e8e8;
+        }
+        .legend {
+            position: absolute;
+            top: 60px; 
+            right: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            z-index: 100;
+            max-width: 200px;
+        }
+        .legend-item {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            border-radius: 3px;
+        }
+        .total-cost {
+            position: absolute;
+            top: 20px;
+            right: 280px;  /* 调整右侧距离 */
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            font-weight: 500;
+            font-size: 12px;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="map"></div>
+        <div class="button-container">
+            <div class="button-row">
+                <div class="button-column">
+                    <div class="column-title">未来方案</div>
+                    <button class="map-button" onclick="showSolution(1, 'future')">1个CDC</button>
+                    <button class="map-button" onclick="showSolution(2, 'future')">2个CDC</button>
+                    <button class="map-button" onclick="showSolution(3, 'future')">3个CDC</button>
+                    <button class="map-button" onclick="showSolution(4, 'future')">4个CDC</button>
+                    <button class="map-button" onclick="showSolution(5, 'future')">5个CDC</button>
+                    <button class="map-button" onclick="showSolution(6, 'future')">6个CDC</button>
+                    <button class="map-button" onclick="showSolution(7, 'future')">7个CDC</button>
+                    <button class="map-button" onclick="showSolution(8, 'future')">8个CDC</button>
+                </div>
+                <div class="button-column">
+                    <div class="column-title">25年方案</div>
+                    <button class="map-button" onclick="showSolution(1, '25')">1个CDC</button>
+                    <button class="map-button" onclick="showSolution(2, '25')">2个CDC</button>
+                    <button class="map-button" onclick="showSolution(3, '25')">3个CDC</button>
+                    <button class="map-button" onclick="showSolution(4, '25')">4个CDC</button>
+                    <button class="map-button" onclick="showSolution(5, '25')">5个CDC</button>
+                    <button class="map-button" onclick="showSolution(6, '25')">6个CDC</button>
+                    <button class="map-button" onclick="showSolution(7, '25')">7个CDC</button>
+                    <button class="map-button" onclick="showSolution(8, '25')">8个CDC</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="legend" id="legend"></div>
+    <div class="total-cost" id="totalCost"></div>
+
+    <script>
+        const colors = [
+            '#FF0000', '#00FF00', '#0000FF', '#FFFF00', 
+            '#FF00FF', '#00FFFF', '#FFA500', '#800080'
+        ];
+
+        var map = new AMap.Map('map', {
+            zoom: 5,
+            center: [116.404, 39.915],
+            mapStyle: 'amap://styles/whitesmoke'  // 使用浅色地图背景
+        });
+
+        let allSolutions = {};
+        let currentOverlays = [];
+
+        async function loadSolutions() {
+            for (let i = 1; i <= 8; i++) {
+                try {
+                    const futureSolution = await fetch(`cdc_${i}_solution_future.json`);
+                    const solution25 = await fetch(`cdc_${i}_solution_25.json`);
+                    allSolutions[`${i}_future`] = await futureSolution.json();
+                    allSolutions[`${i}_25`] = await solution25.json();
+                } catch (error) {
+                    console.error(`Error loading solution ${i}:`, error);
+                }
+            }
+        }
+
+        function clearMap() {
+            currentOverlays.forEach(overlay => {
+                map.remove(overlay);
+            });
+            currentOverlays = [];
+        }
+
+        function updateLegend(solution) {
+            const legend = document.getElementById('legend');
+            legend.innerHTML = '';
+            
+            Object.entries(solution).forEach(([cdc, data], index) => {
+                if (cdc === 'total_cost') return;
+                
+                const div = document.createElement('div');
+                div.className = 'legend-item';
+                div.innerHTML = `
+                    <span class="legend-color" style="background-color: ${colors[index]}"></span>
+                    <span>${cdc}</span>
+                `;
+                legend.appendChild(div);
+            });
+        }
+
+        function createCDCMarker(position, color) {
+            return new AMap.Marker({
+                position: position,
+                content: `
+                    <div style="
+                        background-color: ${color}; 
+                        width: 24px; 
+                        height: 24px; 
+                        border-radius: 50%; 
+                        border: 3px solid white;
+                        box-shadow: 0 0 0 2px ${color}, 0 0 5px rgba(0,0,0,0.3);
+                    "></div>`,
+                offset: new AMap.Pixel(-12, -12),
+                zIndex: 100
+            });
+        }
+
+        function createRDCMarker(position, color) {
+            return new AMap.Marker({
+                position: position,
+                content: `
+                    <div style="
+                        background-color: ${color}; 
+                        width: 14px; 
+                        height: 14px; 
+                        border-radius: 50%; 
+                        border: 2px solid white;
+                        box-shadow: 0 0 0 1px ${color}, 0 0 3px rgba(0,0,0,0.2);
+                        opacity: 0.9;
+                    "></div>`,
+                offset: new AMap.Pixel(-7, -7),
+                zIndex: 90
+            });
+        }
+
+        function showSolution(n, period) {
+            clearMap();
+            const solution = allSolutions[`${n}_${period}`];
+            if (!solution) {
+                alert('方案数据未加载');
+                return;
+            }
+
+            Object.entries(solution).forEach(([cdc, data], index) => {
+                if (cdc === 'total_cost') return;
+                
+                const color = colors[index];
+                const cdcPosition = [data.lng, data.lat];
+
+                const cdcMarker = createCDCMarker(cdcPosition, color);
+                const cdcLabel = new AMap.Text({
+                    text: `${cdc} ${Math.round(data.cost).toLocaleString()}¥`,
+                    position: cdcPosition,
+                    offset: new AMap.Pixel(20, 0),
+                    style: {
+                        'background-color': 'white',
+                        'border': '1px solid #ccc',
+                        'padding': '3px 8px',
+                        'border-radius': '3px',
+                        'box-shadow': '0 2px 4px rgba(0,0,0,0.1)',
+                        'font-weight': 'bold',
+                        'white-space': 'pre-line'  // 允许换行
+                    }
+                });
+                map.add([cdcMarker, cdcLabel]);
+                currentOverlays.push(cdcMarker, cdcLabel);
+
+                data.rdcs.forEach(rdc => {
+                    const rdcPosition = [rdc.lng, rdc.lat];
+                    const rdcMarker = createRDCMarker(rdcPosition, color);
+
+                    if (rdc.city !== cdc) {
+                        const rdcLabel = new AMap.Text({
+                            text: rdc.city,
+                            position: rdcPosition,
+                            offset: new AMap.Pixel(15, 0),
+                            style: {
+                                'background-color': 'white',
+                                'border': '1px solid #ccc',
+                                'padding': '2px 5px',
+                                'border-radius': '2px',
+                                'font-size': '12px'
+                            }
+                        });
+
+                        rdcLabel.on('click', () => {
+                            console.log('RDC标签被点击:', rdc);
+                            console.log('当前data数据:', data);
+                            
+                        
+                            const demand = rdc.demand;
+                            const distance = rdc.distance;
+                            console.log('需求:', demand);
+                            console.log('距离:', distance);
+                            rdcLabel.setText(`${rdc.city}\n需求: ${demand.toLocaleString()}\n运输距离: ${Math.round(distance)} km`);
+
+                        });
+
+                        rdcLabel.on('mouseout', () => {
+                            rdcLabel.setText(rdc.city);
+                        });
+
+                        map.add(rdcLabel);
+                        currentOverlays.push(rdcLabel);
+                    }
+                    
+                    const polyline = new AMap.Polyline({
+                        path: [cdcPosition, rdcPosition],
+                        strokeColor: color,
+                        strokeWeight: 2,
+                        strokeOpacity: 0.6,
+                        strokeStyle: 'solid',
+                        showDir: true
+                    });
+                    
+                    map.add([rdcMarker, polyline]);
+                    currentOverlays.push(rdcMarker, polyline);
+                });
+            });
+
+            const totalCostElement = document.getElementById('totalCost');
+            totalCostElement.innerHTML = `方案总成本: ${Math.round(solution.total_cost).toLocaleString()} ¥`;
+
+            updateLegend(solution);
+        }
+
+        window.onload = function() {
+            loadSolutions().then(() => {
+                showSolution(1, 'future');
+            });
+        };
+    </script>
+</body>
+</html> 
