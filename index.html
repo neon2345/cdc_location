@@ -242,7 +242,7 @@
 
                 const cdcMarker = createCDCMarker(cdcPosition, color);
                 const cdcLabel = new AMap.Text({
-                    text: `${cdc} ${Math.round(data.cost).toLocaleString()}¥`,
+                    text: `${cdc} ¥${Math.round(data.cost).toLocaleString()}`,
                     position: cdcPosition,
                     offset: new AMap.Pixel(20, 0),
                     style: {
@@ -285,7 +285,7 @@
                             const distance = rdc.distance;
                             console.log('需求:', demand);
                             console.log('距离:', distance);
-                            rdcLabel.setText(`${rdc.city}\n需求: ${demand.toLocaleString()}\n运输距离: ${Math.round(distance)} km`);
+                            rdcLabel.setText(`${rdc.city}\n需求: ${demand.toLocaleString()} \n运输距离: ${Math.round(distance)} km`);
 
                         });
 
@@ -312,7 +312,7 @@
             });
 
             const totalCostElement = document.getElementById('totalCost');
-            totalCostElement.innerHTML = `方案总成本: ${Math.round(solution.total_cost).toLocaleString()} ¥`;
+            totalCostElement.innerHTML = `方案总成本: ¥${Math.round(solution.total_cost).toLocaleString()}`;
 
             updateLegend(solution);
         }
